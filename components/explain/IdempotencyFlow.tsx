@@ -38,8 +38,50 @@ export function IdempotencyFlow() {
 
   return (
     <div ref={ref} className="p-6 not-prose">
-      <div className="grid grid-cols-[1fr_auto_1.1fr_auto_1fr] items-center gap-x-2 gap-y-4">
-        {/* Row 1 — first request runs */}
+      {/* Mobile: two side-by-side vertical lanes with down arrows */}
+      <div className="grid grid-cols-2 gap-x-4 md:hidden">
+        <FlowColumn>
+          <Card label="Request A" sub="Idem-Key: k-42" active={phase >= 1} />
+          <ArrowDown active={phase >= 1} />
+          <Card
+            label="Redis SET NX"
+            sub="stored ✓"
+            active={phase >= 1}
+            accent
+          />
+          <ArrowDown active={phase >= 2} />
+          <Card
+            label="Worker runs"
+            sub="result cached"
+            active={phase >= 2}
+            success={phase >= 2}
+          />
+        </FlowColumn>
+        <FlowColumn>
+          <Card
+            label="Request A (retry)"
+            sub="Idem-Key: k-42"
+            active={phase >= 3}
+          />
+          <ArrowDown active={phase >= 3} />
+          <Card
+            label="Redis SET NX"
+            sub="returns: exists"
+            active={phase >= 3}
+            accent
+          />
+          <ArrowDown active={phase >= 4} />
+          <Card
+            label="Cached result"
+            sub="no re-run"
+            active={phase >= 4}
+            success={phase >= 4}
+          />
+        </FlowColumn>
+      </div>
+
+      {/* Desktop: 5-column grid, two horizontal rows */}
+      <div className="hidden md:grid md:grid-cols-[1fr_auto_1.1fr_auto_1fr] md:items-center md:gap-x-2 md:gap-y-4">
         <Card label="Request A" sub="Idem-Key: k-42" active={phase >= 1} />
         <Arrow active={phase >= 1} />
         <Card
@@ -56,7 +98,6 @@ export function IdempotencyFlow() {
           success={phase >= 2}
         />
 
-        {/* Row 2 — duplicate short-circuits */}
         <Card
           label="Request A (retry)"
           sub="Idem-Key: k-42"
@@ -93,6 +134,14 @@ export function IdempotencyFlow() {
         return the cached result. A TTL on the key bounds the dedupe window so
         replays after, say, 24h are treated as fresh work.
       </p>
+    </div>
+  );
+}
+
+function FlowColumn({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-3 [&>*]:w-full">
+      {children}
     </div>
   );
 }
@@ -140,6 +189,20 @@ function Arrow({ active }: { active: boolean }) {
       aria-hidden
     >
       &rarr;
+    </motion.span>
+  );
+}
+
+function ArrowDown({ active }: { active: boolean }) {
+  return (
+    <motion.span
+      initial={false}
+      animate={{ opacity: active ? 1 : 0.2 }}
+      transition={SPRING}
+      className="text-lg leading-none text-ink/55"
+      aria-hidden
+    >
+      &darr;
     </motion.span>
   );
 }

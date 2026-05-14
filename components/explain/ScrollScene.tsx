@@ -40,10 +40,13 @@ type Props<TScene> = {
 };
 
 /**
- * Sticky illustration on the right (top on mobile), step list on the left.
- * The illustration is a static ReactNode; child components inside it read the
- * active scene via `useActiveScene()`. Each `<Step>` child reports its
- * viewport state and advances the active scene index.
+ * Scrollytelling block with two layouts:
+ *  - Desktop (md+): a single sticky illustration on the right, a tall scrolling
+ *    column of steps on the left. Each `<Step>` reports its in-view state and
+ *    drives a shared `SceneContext` consumed by the illustration.
+ *  - Mobile: one illustration card per step, stacked top-to-bottom. Each card
+ *    fixes its scene context to that step so the highlight matches the text
+ *    directly above/below it, no sticky positioning required.
  */
 export function ScrollScene<TScene>({
   scenes,
@@ -52,33 +55,60 @@ export function ScrollScene<TScene>({
   className,
 }: Props<TScene>) {
   const [activeIdx, setActiveIdx] = useState(0);
-  const active = scenes[activeIdx] ?? scenes[0] ?? null;
+  const desktopActive = scenes[activeIdx] ?? scenes[0] ?? null;
 
-  const enriched = Children.toArray(children)
-    .filter(isValidElement)
-    .map((child, i) =>
-      cloneElement(child as StepChild, {
-        __index: i,
-        __onActive: (idx: number) => setActiveIdx(idx),
-      }),
-    );
+  const childArr = Children.toArray(children).filter(isValidElement);
 
-  const ctx = useMemo<SceneContextValue>(() => ({ active }), [active]);
+  const desktopSteps = childArr.map((child, i) =>
+    cloneElement(child as StepChild, {
+      __index: i,
+      __onActive: (idx: number) => setActiveIdx(idx),
+    }),
+  );
+
+  const desktopCtx = useMemo<SceneContextValue>(
+    () => ({ active: desktopActive }),
+    [desktopActive],
+  );
 
   return (
-    <SceneContext.Provider value={ctx}>
-      <div className={`grid gap-12 md:grid-cols-2 md:gap-16 ${className ?? ""}`}>
-        <div className="md:order-2">
-          <div className="md:sticky md:top-24">
-            <div className="overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.03] p-6 ring-1 ring-ink/[0.03]">
-              {illustration}
+    <>
+      {/* Desktop: sticky illustration, scrolling steps */}
+      <SceneContext.Provider value={desktopCtx}>
+        <div
+          className={`hidden md:grid md:grid-cols-2 md:gap-16 ${className ?? ""}`}
+        >
+          <div className="md:order-2">
+            <div className="md:sticky md:top-24">
+              <div className="overflow-hidden rounded-3xl border border-ink/10 bg-ink/[0.03] p-6 ring-1 ring-ink/[0.03]">
+                {illustration}
+              </div>
             </div>
           </div>
+          <div className="flex flex-col gap-[60vh] pb-[40vh] pt-[10vh] md:order-1">
+            {desktopSteps}
+          </div>
         </div>
-        <div className="md:order-1 flex flex-col gap-[60vh] pt-[10vh] pb-[40vh]">
-          {enriched}
-        </div>
+      </SceneContext.Provider>
+
+      {/* Mobile: one illustration card per step, scene fixed per row */}
+      <div
+        className={`flex flex-col gap-10 md:hidden ${className ?? ""}`}
+      >
+        {childArr.map((child, i) => {
+          const scene = scenes[i] ?? scenes[0] ?? null;
+          return (
+            <div key={i} className="flex flex-col gap-4">
+              <SceneContext.Provider value={{ active: scene }}>
+                <div className="mx-auto w-full max-w-md overflow-hidden rounded-2xl border border-ink/10 bg-ink/[0.03] p-4 ring-1 ring-ink/[0.03]">
+                  {illustration}
+                </div>
+              </SceneContext.Provider>
+              {child}
+            </div>
+          );
+        })}
       </div>
-    </SceneContext.Provider>
+    </>
   );
 }
