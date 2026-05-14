@@ -1,0 +1,166 @@
+## Why a distributed job queue
+
+Every backend at scale has one. Amazon SQS. Google Cloud Tasks. Sidekiq, Celery, Resque, RQ. The shape recurs because the problem recurs: someone hits an HTTP endpoint, you owe them a fast response, but the real work — sending an email, running an inference, charging a card — needs to happen reliably, in order, with retries, even if a worker dies mid-flight.
+
+I'm building one end-to-end because that's the only honest way to learn the failure modes. Reading about idempotency keys is one thing; getting paged because two charges went out for the same order is another. **DispatchIQ** is a deliberate slow walk through every classic distributed-systems concept — priority, retries, idempotency, an event bus, observability — implemented in code I can break and fix.
+
+<Callout tone="info" title="Where I'm at">
+I'm in phase 1: the API + scheduler skeleton are coming online. The diagrams below describe the shape I'm building toward; the Python snippets are from the prototype. The Go rewrite shows up at the end as a "what comes next" — same architecture, different runtime story.
+</Callout>
+
+## The five services at a glance
+
+The system is five services on a Kafka backbone, with Postgres for durable state and Redis for hot paths (priority queue, idempotency keys, rate-limit counters, leases). Scroll through the steps and the diagram highlights the service in focus.
+
+<ScrollScene
+  scenes={["api", "scheduler", "workers", "kafka", "dlq"]}
+  illustration={<DispatchArchitecture />}
+>
+  <Step>
+    ### 1. API service
+    A stateless FastAPI tier. Takes a job submission, runs auth, enforces a per-tenant rate limit, checks the idempotency key, persists the job to Postgres, and enqueues it. The HTTP layer never talks to workers — it hands off to the scheduler and returns a `run_id`.
+  </Step>
+  <Step>
+    ### 2. Scheduler
+    Owns the Redis sorted set. Pops the next-due job, hands it to the worker pool, manages retry timers, and routes terminal failures to the DLQ. Stateless — the source of truth is Redis (hot) + Postgres (durable). I can run as many scheduler replicas as I need.
+  </Step>
+  <Step>
+    ### 3. Worker pool
+    Workers claim jobs atomically, run the actual handler, and heartbeat back so a dead worker's job can be reclaimed by another. Per-job-type circuit breakers stop a poison-pill from torching the whole fleet.
+  </Step>
+  <Step>
+    ### 4. Kafka event bus
+    Every state transition — `job.enqueued`, `job.started`, `job.completed`, `job.failed`, `job.dlq` — fans out on Kafka. SSE for live progress, webhooks for external systems, an audit log for compliance, observability for everything. One write, many consumers, no coupling.
+  </Step>
+  <Step>
+    ### 5. Dead-letter queue
+    Terminal failures land here with the full attempt history and last error. A separate `/dlq/retry` endpoint lets an operator (or future me) requeue a job once the underlying bug is fixed. The DLQ is the boundary where automation stops and humans take over.
+  </Step>
+</ScrollScene>
+
+## Priority queue (without starvation)
+
+The queue is a Redis sorted set. Each job's score is its priority times ten to the ninth, plus a monotonic timestamp:
+
+<Equation tex="\text{score} = \text{priority} \cdot 10^9 + \text{ts}" />
+
+Redis pops the smallest score first, so lower priority numbers are more urgent (p1 = critical, p9 = low). The timestamp tail prevents same-priority jobs from starving each other — a job that's been sitting will eventually drift below newer arrivals at the same priority. The `10^9` headroom is wide enough that a critical job always beats a normal one, no matter how stale.
+
+<CodeFence language="python" filename="scheduler/enqueue.py">
+{`def enqueue(job: Job) -> None:
+    score = job.priority * 1e9 + time.time()
+    redis.zadd("queue:jobs", {job.id: score})
+    publish("job.enqueued", job)
+
+def claim_next() -> Job | None:
+    result = redis.bzpopmin("queue:jobs", timeout=1)
+    if not result:
+        return None
+    _, job_id, _ = result
+    return Job.load(job_id)`}
+</CodeFence>
+
+<Figure caption="Adding a critical job slots it ahead of pending normal-priority work — same lane, lower score.">
+  <PriorityQueueViz />
+</Figure>
+
+## At-least-once delivery and retries
+
+A worker claims a job by atomically moving it out of the sorted set and into a per-worker lease key with a TTL. If the worker dies, the lease expires and the scheduler re-enqueues. That's at-least-once delivery — duplicates are possible, which is exactly why idempotency (next section) is non-optional.
+
+On failure, the scheduler reschedules with exponential backoff and jitter. The jitter is what stops a thundering herd: if a downstream service flaps, ten thousand jobs that all failed at `t=0` shouldn't all retry at `t=base`, `t=base·2`, `t=base·4` in lockstep.
+
+<Figure caption="Retry timeline with jittered backoff. Move the sliders to feel the curve; after the last attempt, the job lands in the DLQ.">
+  <RetryBackoff />
+</Figure>
+
+<CodeFence language="python" filename="scheduler/retry.py">
+{`BASE_MS = 250
+MAX_MS = 60_000
+MAX_ATTEMPTS = 5
+
+def schedule_retry(job: Job, attempt: int, error: str) -> None:
+    if attempt >= MAX_ATTEMPTS:
+        route_to_dlq(job, last_error=error)
+        publish("job.dlq", job)
+        return
+
+    ideal = min(BASE_MS * (2 ** attempt), MAX_MS)
+    jittered = ideal * random.uniform(0.75, 1.25)  # ±25%
+    next_run_at = now_ms() + jittered
+
+    redis.zadd("queue:jobs", {job.id: next_run_at})
+    publish("job.failed", job, attempt=attempt, retry_in_ms=jittered)`}
+</CodeFence>
+
+## Idempotency
+
+The API takes an `Idempotency-Key` header. Before doing any work the API sets the key in Redis with `NX` (set only if not exists) and a TTL. If `SET NX` succeeds, this is a fresh request — proceed to enqueue. If it fails, someone already submitted this key; return the cached `run_id` instead of double-enqueueing.
+
+The TTL bounds the dedupe window. After it expires, the same key can be reused — useful for retried-by-a-human submissions a day later.
+
+<Figure caption="Two identical submissions; the second short-circuits at SET NX and returns the cached run_id.">
+  <IdempotencyFlow />
+</Figure>
+
+<CodeFence language="python" filename="api/idempotency.py">
+{`IDEM_TTL_S = 24 * 60 * 60
+
+def submit(req: SubmitRequest, idem_key: str) -> SubmitResponse:
+    run_id = uuid.uuid4().hex
+    stored = redis.set(
+        f"idem:{idem_key}",
+        run_id,
+        nx=True,
+        ex=IDEM_TTL_S,
+    )
+    if not stored:
+        existing = redis.get(f"idem:{idem_key}")
+        return SubmitResponse(run_id=existing, deduplicated=True)
+
+    enqueue(Job.from_request(req, run_id=run_id))
+    return SubmitResponse(run_id=run_id, deduplicated=False)`}
+</CodeFence>
+
+<Callout tone="note" title="Idempotency is not a free lunch">
+The dedupe key has to come from the client. If a buggy client mints a new key on every retry, you'll get duplicate work — and the database has to be the second line of defence (unique constraints, transactional outboxes). Idempotency is one layer; safety is several.
+</Callout>
+
+## Build plan (the journal)
+
+I'm working through this in five phases, each small enough to ship and break independently.
+
+### Phase 1 — API + scheduler skeleton
+
+Stand up FastAPI, Postgres, Redis with `docker-compose`. Submit, list, and inspect jobs over HTTP. Scheduler reads the sorted set and "runs" jobs by calling a no-op handler that logs and sleeps. The goal is shape, not behavior — see the wires, then plug things in.
+
+### Phase 2 — Workers and the happy path
+
+Split the worker out of the scheduler. Atomic claim with a Lua script. Heartbeats. Run a real handler (send-email, http-call). End of this phase: a job submitted to the API actually does something, and I can watch it move through `enqueued → started → completed`.
+
+### Phase 3 — Retries and DLQ
+
+Per-job-type retry policy. Exponential backoff + jitter from the snippet above. DLQ table in Postgres with the full attempt trail. A `/dlq/retry` endpoint that re-enqueues a failed job. End of this phase: I can break a handler intentionally and watch the system recover or escalate.
+
+### Phase 4 — Idempotency and rate limits
+
+`Idempotency-Key` header → Redis `SET NX`. Per-tenant token bucket. Per-job-type circuit breaker that opens after N consecutive failures and short-circuits new jobs for a cool-down. End of this phase: a misbehaving client can't take the system down.
+
+### Phase 5 — Event bus and observability
+
+Wire Kafka. Producer in the scheduler emits lifecycle events. Two consumers to start: an SSE bridge for `/runs/:id/stream`, and an audit log writer for Postgres. Prometheus metrics for queue depth, age, worker utilization. OpenTelemetry traces stitched across API → scheduler → worker. End of this phase: I can answer "why is this job slow" from a Grafana board, not by grepping logs.
+
+## What I'll explore in Go
+
+Once the Python prototype is stable, I rebuild the hot path (scheduler + workers) in Go. The interesting deltas:
+
+- **Concurrency model.** A goroutine per in-flight job is cheap enough to be the obvious default. The Python version leans on `asyncio` for I/O concurrency plus a worker process pool for CPU-heavy handlers — two different mental models. In Go it's one model: goroutines all the way down, with `context.Context` for cancellation and timeouts.
+- **Internal RPC.** Switch the API ↔ scheduler hop from REST to gRPC. Streaming RPCs become a natural fit for `/runs/:id/stream` without an SSE adapter.
+- **Lower-latency Redis.** `go-redis` with pipelining and the connection pool tuned per CPU. The Python prototype's per-call Redis round-trip is fine at low concurrency; I want to see how far Go takes it.
+- **Operator story.** Kubernetes HPA driven by KEDA on queue depth, not CPU. Healthchecks that distinguish "liveness" (the process is alive) from "readiness" (the worker has Redis, Postgres, and Kafka connections it actually needs).
+
+Same architecture, more runtime headroom, and a chance to compare the two implementations side-by-side. The case study expands as each phase ships.
+
+<Callout tone="info" title="Where the code lives">
+Repo is at <span className="font-mono">github.com/abhay-cs/dispatchiq</span> once it's public. For now this page is the planning artifact, updated as I move through the phases.
+</Callout>

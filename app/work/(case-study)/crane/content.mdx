@@ -1,0 +1,80 @@
+## Core idea
+
+Crane is designed for fast, distraction-free capture. A global shortcut opens a compact overlay where you can drop a thought or paste a link, save it instantly, and hide the window again. The point is not to "open an app" — it's to never leave the one you're already in.
+
+<Callout tone="info" title="The flow, in three beats">
+Press the hotkey from anywhere. Type or paste. Hit return — overlay vanishes, drop is filed. Scroll the steps below to watch it happen.
+</Callout>
+
+<ScrollScene
+  scenes={["press", "type", "save"]}
+  illustration={<CraneOverlay />}
+>
+  <Step>
+    ### 1. Hit the hotkey
+    A global shortcut — `Cmd + Shift + Space` on macOS, `Ctrl + Shift + Space` elsewhere — pops the overlay over whatever you're doing. No window manager dance, no dock-bounce.
+  </Step>
+  <Step>
+    ### 2. Drop a thought
+    The overlay focuses an input. Type a fragment, paste a URL, toggle into link mode if you want to tag it as a reference. Crane doesn't care what you put in — it cares that putting it in took zero context-switch.
+  </Step>
+  <Step>
+    ### 3. Save and vanish
+    Return saves the drop and dismisses the overlay. The window collapses, the drop joins your history, and you're back in the document you were reading two seconds ago — no Spotlight queue, no half-finished Apple Note, no lost tab.
+  </Step>
+</ScrollScene>
+
+## What it is good for
+
+- Jotting down a fleeting idea without opening a full app
+- Saving a link straight from a hotkey, no browser extension
+- Keeping a simple, searchable history of captured notes and links
+- Acting as a minimal "brain dump" companion while you're reading, researching, or building
+
+## A small history of what you saved
+
+Every drop goes into a local list you can search and delete from. There's no sync, no account, no LLM rephrasing your sentence — it's a flat file with a search box on top.
+
+<Figure caption="Recent drops, with a small visual cue distinguishing notes from links.">
+  <div className="p-6">
+    <DropList />
+  </div>
+</Figure>
+
+## Features
+
+- Global hotkey to open the input overlay
+  - **macOS:** <KeyCombo keys={["Cmd", "Shift", "Space"]} />
+  - **Windows / Linux:** <KeyCombo keys={["Ctrl", "Shift", "Space"]} />
+- Capture quick text entries and save them as **drops**
+- Toggle **link mode** for URL captures
+- Searchable history view with delete support
+- Lightweight Tauri desktop app with native shortcuts and a tray menu
+
+<Callout tone="warn" title="Hotkey conflict on macOS">
+`Cmd + Shift + Space` is bound to Spotlight on stock macOS settings. Either rebind the OS shortcut, or change Crane's hotkey in the tray menu before launch.
+</Callout>
+
+## Development
+
+The codebase is a Vite + React + TypeScript front end wrapped in Tauri 2 for the desktop shell. The four scripts you'll actually use:
+
+<CodeFence language="bash" filename="install">
+npm install
+</CodeFence>
+
+<CodeFence language="bash" filename="dev">
+npm run dev
+</CodeFence>
+
+<CodeFence language="bash" filename="build">
+npm run build
+</CodeFence>
+
+<CodeFence language="bash" filename="tauri">
+npm run tauri
+</CodeFence>
+
+### Recommended IDE setup
+
+VS Code with the **Tauri** extension and **rust-analyzer** for the Rust side. The Rust surface is small (mostly the `src-tauri/` shell + the global-shortcut plugin wiring) but rust-analyzer pays for itself the first time you touch `tauri.conf.json` or a permission file.

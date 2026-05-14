@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  /* Space-separated RGB for Tailwind rgb(var(--x) / <alpha-value>) */
+  --color-cream: 250 247 242;
+  --color-ink: 28 28 28;
+  --color-accent: 45 58 74;
+  /* Fixed light — labels on solid accent fills */
+  --color-paper: 250 247 242;
+  /* Legacy hex (optional consumers) */
+  --cream: #faf7f2;
+  --ink: #1c1c1c;
+  --accent: #2d3a4a;
+}
+
+/* Auto dark — applies when OS is dark AND the user hasn't pinned light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-cream: 22 21 19;
+    --color-ink: 232 230 227;
+    --color-accent: 154 168 188;
+    --color-paper: 250 247 242;
+    --cream: #161513;
+    --ink: #e8e6e3;
+    --accent: #9aa8bc;
+  }
+}
+
+/* Explicit user override wins regardless of OS. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-cream: 22 21 19;
+  --color-ink: 232 230 227;
+  --color-accent: 154 168 188;
+  --color-paper: 250 247 242;
+  --cream: #161513;
+  --ink: #e8e6e3;
+  --accent: #9aa8bc;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-cream: 250 247 242;
+  --color-ink: 28 28 28;
+  --color-accent: 45 58 74;
+  --color-paper: 250 247 242;
+  --cream: #faf7f2;
+  --ink: #1c1c1c;
+  --accent: #2d3a4a;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  background-color: rgb(var(--color-cream) / 1);
+  color: rgb(var(--color-ink) / 1);
+}
+
+@keyframes cursor-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.15;
+  }
+}
+
+.animate-cursor-blink {
+  animation: cursor-blink 1s step-end infinite;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
