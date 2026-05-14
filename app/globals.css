@@ -63,6 +63,28 @@ body {
   color: rgb(var(--color-ink) / 1);
 }
 
+/* Pixel-art hand cursor across the site — the "4 0" is the hotspot
+   (index-finger tip), with the OS default as a fallback if the PNG fails. */
+html {
+  cursor: url("/cursor.png") 4 0, auto;
+}
+
+a,
+button,
+[role="button"],
+label,
+summary,
+select,
+input[type="checkbox"],
+input[type="radio"],
+input[type="submit"],
+input[type="button"],
+input[type="reset"],
+input[type="range"],
+[tabindex]:not([tabindex="-1"]) {
+  cursor: url("/cursor.png") 4 0, pointer;
+}
+
 @keyframes cursor-blink {
   0%,
   45% {

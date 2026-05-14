@@ -13,6 +13,10 @@
 /.next/
 /out/
 
+# cloudflare workers
+.wrangler/
+.dev.vars
+
 # production
 /build
 

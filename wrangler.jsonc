@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "portfolio-v2",
+  "compatibility_date": "2026-01-01",
+  // Pure Static Assets Worker — no script needed; Cloudflare serves the
+  // exported Next.js `out/` directory as the site. Cloudflare's asset
+  // handler resolves `/work/crane/` -> `out/work/crane/index.html` and
+  // falls back to `out/404.html` for unknown paths.
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
