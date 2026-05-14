@@ -14,8 +14,8 @@ export function HomeHero() {
 
   return (
     <section className="mx-auto max-w-6xl px-4 pb-16 pt-6 md:px-8 md:pb-24">
-      <div className="flex items-start justify-between gap-6 md:gap-10">
-        <div className="max-w-2xl flex-1">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between sm:gap-6 md:gap-10">
+        <div className="order-2 max-w-2xl flex-1 sm:order-1">
           <div className="flex items-center gap-5 md:gap-6">
             {/*
             <ScrollReveal>
@@ -59,7 +59,7 @@ export function HomeHero() {
           height={480}
           priority
           unoptimized
-          className="h-36 w-36 shrink-0 select-none [image-rendering:pixelated] sm:h-44 sm:w-44 md:h-64 md:w-64 lg:h-72 lg:w-72"
+          className="order-1 h-32 w-32 shrink-0 select-none self-start [image-rendering:pixelated] sm:order-2 sm:h-44 sm:w-44 md:h-64 md:w-64 lg:h-72 lg:w-72"
         />
       </div>
       {/*

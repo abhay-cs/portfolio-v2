@@ -30,8 +30,8 @@ export function WorkClient({ projects }: { projects: Project[] }) {
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24 pt-10 md:px-8">
-      <div className="flex items-start justify-between gap-6 md:gap-10">
-        <ScrollReveal className="max-w-2xl flex-1">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between sm:gap-6 md:gap-10">
+        <ScrollReveal className="order-2 max-w-2xl flex-1 sm:order-1">
           <SectionHeading
             as="h1"
             className="font-display text-4xl tracking-tight text-ink md:text-5xl"
@@ -43,7 +43,7 @@ export function WorkClient({ projects }: { projects: Project[] }) {
           </p>
         </ScrollReveal>
 
-        <div className="group relative shrink-0">
+        <div className="group relative order-1 shrink-0 self-start sm:order-2">
           <Image
             src="/dogcow.png"
             alt="Dogcow — the classic Mac mascot"
