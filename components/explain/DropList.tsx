@@ -8,21 +8,21 @@ type Drop = { id: string; text: string; kind: "text" | "link"; ts: string };
 const SAMPLE: Drop[] = [
   {
     id: "d3",
-    text: "Idea: capture as a noun, not a verb",
+    text: "Email Maya about Friday — try the late slot",
     kind: "text",
     ts: "just now",
   },
   {
     id: "d2",
-    text: "https://distill.pub/2017/momentum",
+    text: "https://linear.app/issue/CRN-204",
     kind: "link",
-    ts: "12m ago",
+    ts: "2m ago",
   },
   {
     id: "d1",
-    text: "Re-read: bret victor 'magic ink' (esp. context section)",
+    text: "Try a tag system for crane — maybe locally with mlx",
     kind: "text",
-    ts: "2h ago",
+    ts: "11m ago",
   },
 ];
 

@@ -6,7 +6,7 @@ import Content from "./content.mdx";
 export const metadata: Metadata = {
   title: "Crane — case study",
   description:
-    "A lightweight desktop capture utility built with Tauri, React, and TypeScript.",
+    "A native macOS capture utility — a floating pill behind ⌘⇧Space, a searchable history, and a menu-bar dashboard.",
 };
 
 export default function CranePage() {
@@ -14,17 +14,17 @@ export default function CranePage() {
     <ArticleShell
       kicker="Case study"
       title="Crane"
-      tagline="A lightweight desktop capture utility — a global hotkey, a floating input, a searchable history of drops."
+      tagline="Don't switch apps for a sentence in your head — a holding pen for the thoughts you catch mid-flow."
       meta={
         <div className="flex items-center gap-3">
           <Image
-            src="/crane/bird.svg"
+            src="/crane/app-icon.png"
             alt=""
             width={28}
             height={28}
-            className="h-7 w-7"
+            className="h-7 w-7 rounded-md"
           />
-          <span>Tauri · React · TypeScript</span>
+          <span>SwiftUI · SwiftData · AppKit</span>
         </div>
       }
       backHref="/work"

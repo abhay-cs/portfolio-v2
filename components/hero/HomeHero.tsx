@@ -47,6 +47,27 @@ export function HomeHero() {
             >
               View work
             </Link>
+            <a
+              href="https://crane.byabhay.com/"
+              className="inline-flex items-center gap-2.5 rounded-full bg-[#1A00E6] py-1.5 pl-1.5 pr-5 text-paper transition-opacity hover:opacity-90"
+            >
+              <Image
+                src="/crane/app-icon.png"
+                alt=""
+                width={28}
+                height={28}
+                className="h-7 w-7 shrink-0 rounded-md"
+              />
+              <span className="flex items-center gap-2">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-paper/75">
+                  Latest
+                </span>
+                <span className="text-paper/45" aria-hidden>
+                  —
+                </span>
+                <span className="font-medium text-paper">Crane</span>
+              </span>
+            </a>
           </div>
 
           <HomeMeta />

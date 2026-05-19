@@ -18,10 +18,10 @@ export const PROJECTS: Project[] = [
   {
     id: "crane",
     name: "Crane",
-    stack: ["Tauri", "React", "TypeScript"],
+    stack: ["SwiftUI", "SwiftData", "AppKit"],
     description:
-      "A lightweight desktop capture utility — a global hotkey, a floating input, and a searchable history of drops.",
-    href: "https://github.com/abhaycs/crane",
+      "A floating capture bar behind ⌘⇧Space — type a thought, hit Enter, get back to your editor in ~2 seconds.",
+    href: "https://crane.byabhay.com/",
     tags: ["app", "experiment"],
     caseStudyHref: "/work/crane",
   },

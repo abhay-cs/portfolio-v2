@@ -1,9 +1,23 @@
-## Core idea
+## Why
 
-Crane is designed for fast, distraction-free capture. A global shortcut opens a compact overlay where you can drop a thought or paste a link, save it instantly, and hide the window again. The point is not to "open an app" — it's to never leave the one you're already in.
+You're three layers deep in a Figma file, or rereading a paragraph of a paper, or untangling a function that almost compiles, and your brain does the thing it always does:
+
+> *"I should email Maya about Friday."*
+> *"What was that link Jay sent me?"*
+> *"Add a tag system to crane."*
+
+Three options, all bad:
+
+1. **Hold the thought.** Now you're juggling two things, and the original task is degraded.
+2. **Switch apps to write it down properly** (Notes, Linear, a journal). The switch costs you the flow you were protecting in the first place.
+3. **Let it go.** It comes back at 11pm, in the shower, three days later — the wrong moment, every time.
+
+crane is the fourth option. A global <KeyCombo keys={["Cmd", "Shift", "Space"]} /> anywhere, a one-line capture pill in the upper third of your screen, hit Enter, the pill dismisses, you're back in your editor. Total elapsed time: roughly 2 seconds.
+
+This is not a notes app. It's a *holding pen* between flow and proper capture. The history is meant to be skimmed at the end of a session and either acted on or discarded.
 
 <Callout tone="info" title="The flow, in three beats">
-Press the hotkey from anywhere. Type or paste. Hit return — overlay vanishes, drop is filed. Scroll the steps below to watch it happen.
+Press the hotkey from anywhere. Type or paste. Hit return — pill vanishes, drop is filed. Scroll the steps below to watch it happen.
 </Callout>
 
 <ScrollScene
@@ -12,69 +26,91 @@ Press the hotkey from anywhere. Type or paste. Hit return — overlay vanishes, 
 >
   <Step>
     ### 1. Hit the hotkey
-    A global shortcut — `Cmd + Shift + Space` on macOS, `Ctrl + Shift + Space` elsewhere — pops the overlay over whatever you're doing. No window manager dance, no dock-bounce.
+    <KeyCombo keys={["Cmd", "Shift", "Space"]} /> drops a 620×88pt panel at the upper third of the active screen. The text field is already focused. No Dock animation, no app switch, no warm-up — registered via Carbon's `RegisterEventHotKey`, so it works inside the App Sandbox.
   </Step>
   <Step>
     ### 2. Drop a thought
-    The overlay focuses an input. Type a fragment, paste a URL, toggle into link mode if you want to tag it as a reference. Crane doesn't care what you put in — it cares that putting it in took zero context-switch.
+    Type a fragment or paste a URL. <KeyCombo keys={["Cmd", "L"]} /> toggles link mode — a `LINK` badge appears and the URL is parsed at save-time. crane doesn't care what you put in; it cares that putting it in took zero context-switch.
   </Step>
   <Step>
     ### 3. Save and vanish
-    Return saves the drop and dismisses the overlay. The window collapses, the drop joins your history, and you're back in the document you were reading two seconds ago — no Spotlight queue, no half-finished Apple Note, no lost tab.
+    Return saves the drop and dismisses the pill with a quick checkmark blip. The window collapses, the drop joins your history, and you're back in the document you were reading two seconds ago.
   </Step>
 </ScrollScene>
 
-## What it is good for
+## What it does
 
-- Jotting down a fleeting idea without opening a full app
-- Saving a link straight from a hotkey, no browser extension
-- Keeping a simple, searchable history of captured notes and links
-- Acting as a minimal "brain dump" companion while you're reading, researching, or building
+- **<KeyCombo keys={["Cmd", "Shift", "Space"]} /> anywhere** — toggle the capture pill on the active screen's upper third
+- **Type → Enter** — persist the drop, dismiss the pill
+- **<KeyCombo keys={["Cmd", "L"]} />** — toggle link mode; URLs render as clickable rows in history
+- **<KeyCombo keys={["Cmd", "H"]} />** — expand the same panel into a searchable history list, newest-first, with per-row delete on hover
+- **Menu-bar dashboard** — TOTAL / TODAY / STREAK cards, a 14-day activity sparkline, thoughts-vs-links breakdown, and three most recent drops
+- **Stays out of your way** — no Dock icon, no Cmd-Tab entry; crane lives in your menu bar and behind a global keystroke
 
 ## A small history of what you saved
 
-Every drop goes into a local list you can search and delete from. There's no sync, no account, no LLM rephrasing your sentence — it's a flat file with a search box on top.
+Every drop goes into a local SwiftData store you can search and delete from. There's no sync, no account, no LLM rephrasing your sentence — it's a flat list with a search box on top.
 
-<Figure caption="Recent drops, with a small visual cue distinguishing notes from links.">
+<Figure caption="Recent drops, with a small visual cue distinguishing thoughts from links.">
   <div className="p-6">
     <DropList />
   </div>
 </Figure>
 
-## Features
+## Architecture
 
-- Global hotkey to open the input overlay
-  - **macOS:** <KeyCombo keys={["Cmd", "Shift", "Space"]} />
-  - **Windows / Linux:** <KeyCombo keys={["Ctrl", "Shift", "Space"]} />
-- Capture quick text entries and save them as **drops**
-- Toggle **link mode** for URL captures
-- Searchable history view with delete support
-- Lightweight Tauri desktop app with native shortcuts and a tray menu
+The capture pill and history list live inside the **same** borderless `NSPanel`, not separate windows. Switching between views animates the panel's frame downward from 620×88 (pill) to 620×480 (history) while the SwiftUI hierarchy cross-fades.
+
+The menu-bar dashboard and the overlay panel point to **the same shared `ModelContainer`**. A drop captured via <KeyCombo keys={["Cmd", "Shift", "Space"]} /> lights up the dashboard's TOTAL/TODAY/STREAK numbers and the recent list live — both surfaces consume drops via `@Query`.
+
+<CodeFence language="text" filename="Architecture">
+{`craneApp (SwiftUI scene + MenuBarExtra)
+    │
+    ├── AppDelegate ──── GlobalHotkey (⌘⇧Space)
+    │       │
+    │       └── OverlayController ──── NSPanel (borderless, .floating)
+    │                                       │
+    │                                       └── NSHostingView<ContentView>
+    │                                               ├── DropInputBar
+    │                                               └── HistoryView
+    │
+    └── DashboardView (menu-bar popover)`}
+</CodeFence>
+
+## Design system
+
+crane is built to feel like *one* coordinated surface, not a bag of views. Three shared tokens carry that: one motion language, one corner radius, one edge highlight — all in `Design.swift`.
+
+- **Two springs, not five.** `craneSpring` for big transitions (input ⇄ history, panel resize); `craneSnappy` for hover, press, and the save checkmark.
+- **Continuous corners at 22pt** for primary surfaces (pill, history card). Always `.continuous` — never `.circular`.
+- **Specular border** — a 0.5pt linear-gradient stroke from white-at-22% top-leading to white-at-4% bottom-trailing. Reads as a highlight on the lit side of glass, not an outline.
+- **Liquid Glass where safe.** Dashboard stat cards and row hover states use `.glassEffect()`; the capture pill uses `.regularMaterial` instead — focused text fields inside a glass surface get an unavoidable focus halo on macOS 26, and there's no public API to opt out.
+
+## Keyboard
+
+| Where | Combo | Action |
+|---|---|---|
+| Anywhere | <KeyCombo keys={["Cmd", "Shift", "Space"]} /> | Toggle the capture pill |
+| Capture pill | <KeyCombo keys={["Enter"]} /> | Save the drop, dismiss |
+| Capture pill | <KeyCombo keys={["Cmd", "L"]} /> | Toggle link mode |
+| Capture pill | <KeyCombo keys={["Cmd", "H"]} /> | Switch to history view |
+| Capture pill | Esc | Dismiss |
+| History | Esc | Back to capture pill |
+| Anywhere | <KeyCombo keys={["Cmd", "Q"]} /> | Quit |
 
 <Callout tone="warn" title="Hotkey conflict on macOS">
-`Cmd + Shift + Space` is bound to Spotlight on stock macOS settings. Either rebind the OS shortcut, or change Crane's hotkey in the tray menu before launch.
+<KeyCombo keys={["Cmd", "Shift", "Space"]} /> is bound to Spotlight on stock macOS settings. Either rebind the OS shortcut, or change crane's hotkey before launch.
 </Callout>
 
 ## Development
 
-The codebase is a Vite + React + TypeScript front end wrapped in Tauri 2 for the desktop shell. The four scripts you'll actually use:
+Requires macOS 26.4 (Tahoe) and Xcode 26 — the app leans on `@Model` / `@Query` (SwiftData), Liquid Glass tokens, and `MenuBarExtra` features from this era. There's no release artifact yet; building from source is the supported path.
 
 <CodeFence language="bash" filename="install">
-npm install
+git clone https://github.com/abhay-cs/crane.git
+cd crane
+open crane.xcodeproj
+# ⌘R in Xcode
 </CodeFence>
 
-<CodeFence language="bash" filename="dev">
-npm run dev
-</CodeFence>
-
-<CodeFence language="bash" filename="build">
-npm run build
-</CodeFence>
-
-<CodeFence language="bash" filename="tauri">
-npm run tauri
-</CodeFence>
-
-### Recommended IDE setup
-
-VS Code with the **Tauri** extension and **rust-analyzer** for the Rust side. The Rust surface is small (mostly the `src-tauri/` shell + the global-shortcut plugin wiring) but rust-analyzer pays for itself the first time you touch `tauri.conf.json` or a permission file.
+See the live site at [crane.byabhay.com](https://crane.byabhay.com/) or the full README on [GitHub](https://github.com/abhay-cs/crane).

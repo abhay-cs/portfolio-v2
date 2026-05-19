@@ -8,7 +8,7 @@ import { useActiveScene } from "@/components/explain/ScrollScene";
 
 export type CraneScene = "press" | "type" | "save" | "history";
 
-const TYPED_THOUGHT = "Idea: capture as a noun, not a verb";
+const TYPED_THOUGHT = "Email Maya about Friday — try the late slot";
 
 export function CraneOverlay({ scene: sceneProp }: { scene?: CraneScene } = {}) {
   const ctxScene = useActiveScene<CraneScene>();
@@ -29,7 +29,7 @@ export function CraneOverlay({ scene: sceneProp }: { scene?: CraneScene } = {}) 
         {overlayVisible ? (
           <motion.div
             key="overlay"
-            className="mt-12 w-full max-w-md rounded-2xl border border-ink/15 bg-cream p-4 shadow-xl ring-1 ring-ink/5"
+            className="mt-12 w-full max-w-md rounded-[22px] border border-[#1A00E6]/20 bg-cream p-4 shadow-xl ring-1 ring-[#1A00E6]/10"
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.97 }}
@@ -37,14 +37,14 @@ export function CraneOverlay({ scene: sceneProp }: { scene?: CraneScene } = {}) 
           >
             <div className="mb-3 flex items-center gap-2">
               <Image
-                src="/crane/bird.svg"
+                src="/crane/app-icon.png"
                 alt=""
                 width={20}
                 height={20}
-                className="h-5 w-5 opacity-80"
+                className="h-5 w-5 rounded-sm opacity-90"
               />
               <span className="text-[11px] uppercase tracking-[0.18em] text-ink/55">
-                Drop a thought
+                Drop your thought…
               </span>
             </div>
             <div className="rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2 font-mono text-sm">
